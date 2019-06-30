@@ -15,7 +15,7 @@ try:
     import torch.nn as nn
     import torchvision
     from torch.autograd import Variable
-    from vaegan.utils import init_weights
+    from dec.utils import init_weights
 except ImportError as e:
     print(e)
     raise ImportError
@@ -45,11 +45,11 @@ class Encoder_CNN(nn.Module):
     input: reak-image
     output: vector sample from z
     """
-    def __init__(self, batch_size=60, latent_dim=50, verbose=False):
+    def __init__(self, batch_size=60, n_cluster=10, verbose=False):
         super(Encoder_CNN, self).__init__()
 
         self.batch_size = batch_size
-        self.latent_dim = latent_dim
+        self.n_cluster = n_cluster
         self.cshape = (128, 7, 7)
         self.iels = int(np.prod(self.cshape))
         self.lshape = (self.iels,)
@@ -70,7 +70,7 @@ class Encoder_CNN(nn.Module):
             nn.BatchNorm1d(1024),
             nn.ReLU(True),
 
-            nn.Linear(1024, self.latent_dim)
+            nn.Linear(1024, self.n_cluster)
         )
 
         init_weights(self)
@@ -86,10 +86,10 @@ class Encoder_CNN(nn.Module):
 
 
 class Decoder_CNN(nn.Module):
-    def __init__(self, latent_dim=50, batch_size=60, img_feature=(1, 28, 28), verbose=False):
+    def __init__(self, n_cluster=10, batch_size=60, img_feature=(1, 28, 28), verbose=False):
         super(Decoder_CNN, self).__init__()
 
-        self.latent_dim = latent_dim
+        self.n_cluster = n_cluster
         self.batch_size = batch_size
         self.img_feature = img_feature
         self.cshape = (128, 7, 7)
@@ -98,7 +98,7 @@ class Decoder_CNN(nn.Module):
         self.verbose = verbose
 
         self.model = nn.Sequential(
-            nn.Linear(self.latent_dim, 1024),
+            nn.Linear(self.n_cluster, 1024),
             nn.BatchNorm1d(1024),
             nn.ReLU(True),
 
@@ -129,47 +129,14 @@ class Decoder_CNN(nn.Module):
         return gen_imgs
 
 
-class Discrinimator_CNN(nn.Module):
-    def __init__(self, verbose=False):
-        super(Discrinimator_CNN, self).__init__()
-
-        self.cshape = (128, 7, 7)
-        self.iels = int(np.prod(self.cshape))
-        self.lshape = (self.iels,)
-        self.verbose = verbose
-
-        self.model = nn.Sequential(
-            nn.Conv2d(1, 64, 4, stride=2, padding=1),
-            nn.ReLU(True),
-
-            nn.Conv2d(64, 128, 4, stride=2, padding=1),
-            nn.ReLU(True),
-
-            Reshape(self.lshape),
-
-            nn.Linear(self.iels, 1024),
-            nn.ReLU(True),
-
-            nn.Linear(1024, 1),
-        )
-
-        init_weights(self)
-
-        if self.verbose:
-            print(self.model)
+class DEC(nn.Module):
+    def __init__(self):
+        super(DEC, self).__init__()
 
     def forward(self, x):
-        valid = self.model(x)
-        return valid
+        pass
 
 
-# def img_show(img):
-#     img = img / 2 + 0.5
-#     nimg = img.numpy()
-#     plt.imshow(np.transpose(nimg, (1, 2, 0)))
-#     plt.show()
-#
-#
 # encoder = Encoder_CNN()
 # decoder = Decoder_CNN()
 # from vaegan.datasets import get_dataloader
@@ -181,3 +148,4 @@ class Discrinimator_CNN(nn.Module):
 # fake_imgs = decoder(z)
 #
 # img_show(torchvision.utils.make_grid(fake_imgs.data))
+
