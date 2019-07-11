@@ -11,6 +11,7 @@
 
 try:
     import matplotlib.pyplot as plt
+    import torchvision
     import numpy as np
     import torch.nn as nn
 except ImportError as e:
@@ -36,5 +37,13 @@ def init_weights(Net):
         elif isinstance(m, nn.Linear):
             m.weight.data.normal_(0, 0.02)
             m.bias.data.zero_()
+
+
+def save_images(tensor, filename):
+    torchvision.utils.save_image(
+        tensor,
+        filename,
+        nrow=16
+    )
 
 

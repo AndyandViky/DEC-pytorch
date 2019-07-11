@@ -19,9 +19,10 @@ try:
     from dec.models import Encoder_CNN, Decoder_CNN, DEC
     from dec.datasets import dataset_list, get_dataloader
     from dec.definitions import RUNS_DIR, DATASETS_DIR
+    from dec.utils import save_images
     from itertools import chain as ichain
     from sklearn.cluster import KMeans
-    import sklearn.metrics as metrics
+    import dec.metrics as metrics
 except ImportError as e:
     print(e)
     raise ImportError
@@ -30,7 +31,7 @@ except ImportError as e:
 def main():
     global args
     parser = argparse.ArgumentParser(description="Convolutional NN Training Script")
-    parser.add_argument("-r", "--run_name", dest="run_name", default="vaegan", help="Name of training run")
+    parser.add_argument("-r", "--run_name", dest="run_name", default="dec", help="Name of training run")
     parser.add_argument("-n", "--n_epochs", dest="n_epochs", default=200, type=int, help="Number of epochs")
     parser.add_argument("-b", "--batch_size", dest="batch_size", default=256, type=int, help="Batch size")
     parser.add_argument("-s", "--dataset_name", dest="dataset_name", default='mnist', choices=dataset_list,
@@ -59,7 +60,7 @@ def main():
     momentum = 0.9
     epochs = args.n_epochs
     batch_size = args.batch_size
-    pretrain_epochs = 300
+    pretrain_epochs = 100
     pretrain = args.pretrain
     n_cluster = 10
     lr_adam = 1e-4 # 0.0001, 用于预训练autoencoder
@@ -110,22 +111,28 @@ def main():
                 z = encoder(data)
                 output = decoder(z)
 
-                loss = auto_loss(output, output)
+                loss = auto_loss(data, output)
                 loss.backward()
 
                 auto_op.step()
+
+            # caculate acc of autoencoder
+            data, target = next(iter(dataloader))
+            data = data.to(device)
+            encoder.eval()
+            decoder.eval()
+            features = encoder(data)
+            save_images(decoder(features), "%s/%s_%d.png" % (imgs_dir, 'pretrain_test', epoch))
+            data, target = features.data.cpu(), target.numpy()
+            km = KMeans(n_clusters=n_cluster, n_init=20)
+            y_pred = km.fit_predict(features.data.cpu())
+            print(' ' * 8 + '|==>  acc: %.4f,  nmi: %.4f  <==|'
+                  % (metrics.acc(target, y_pred), metrics.nmi(target, y_pred)))
 
         # save model params
         torch.save(encoder.state_dict(), os.path.join(models_dir, 'encoder.pkl'))
         torch.save(decoder.state_dict(), os.path.join(models_dir, 'decoder.pkl'))
 
-        # caculate acc of autoencoder
-        # encoder.eval()
-        # features = encoder.predict(data)
-        # km = KMeans(n_clusters=n_cluster, n_init=20, n_jobs=4)
-        # y_pred = km.fit_predict(features)
-        # print(' ' * 8 + '|==>  acc: %.4f,  nmi: %.4f  <==|'
-        #       % (metrics.acc(target, y_pred), metrics.nmi(target, y_pred)))
     else:
         encoder.load_state_dict(torch.load(os.path.join(models_dir, 'encoder.pkl')))
         decoder.load_state_dict((torch.load(os.path.join(models_dir, 'decoder.pkl'))))
