@@ -35,7 +35,7 @@ def main():
     parser.add_argument("-b", "--batch_size", dest="batch_size", default=256, type=int, help="Batch size")
     parser.add_argument("-s", "--dataset_name", dest="dataset_name", default='mnist', choices=dataset_list,
                         help="Dataset name")
-    parser.add_argument("-p", "--pretrain", dest="pretrain", default=False, help="pretrain ae")
+    parser.add_argument("-p", "--pretrain", dest="pretrain", default=True, help="pretrain ae")
     args = parser.parse_args()
 
     run_name = args.run_name
@@ -69,7 +69,7 @@ def main():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
     #------test var--------
-    batch_size = 1500
+    test_batch_size = 1500
 
     # net
     encoder = Encoder_CNN(n_cluster=n_cluster, batch_size=batch_size)
@@ -82,13 +82,13 @@ def main():
 
     # optimization
     auto_op = torch.optim.Adam(autoencoder_params, lr=lr_adam, betas=(b1, b2), weight_decay=decay)
-    dec_op = torch.optim.SGD(dec.parameters(), lr=sgd_lr, momentum=momentum)
+    # dec_op = torch.optim.SGD(dec.parameters(), lr=sgd_lr, momentum=momentum)
 
     # dataloader
     dataloader = get_dataloader(dataset_path=data_dir, dataset_name=dataset_name, batch_size=batch_size, train=True)
 
     # loss
-    auto_loss = F.mse_loss()
+    auto_loss = nn.MSELoss()
 
     # to cuda
     encoder.to(device)
@@ -110,7 +110,7 @@ def main():
                 z = encoder(data)
                 output = decoder(z)
 
-                loss = auto_loss(input=output, target=target)
+                loss = auto_loss(output, output)
                 loss.backward()
 
                 auto_op.step()
@@ -120,12 +120,12 @@ def main():
         torch.save(decoder.state_dict(), os.path.join(models_dir, 'decoder.pkl'))
 
         # caculate acc of autoencoder
-        encoder.eval()
-        features = encoder.predict(data)
-        km = KMeans(n_clusters=n_cluster, n_init=20, n_jobs=4)
-        y_pred = km.fit_predict(features)
-        print(' ' * 8 + '|==>  acc: %.4f,  nmi: %.4f  <==|'
-              % (metrics.acc(target, y_pred), metrics.nmi(target, y_pred)))
+        # encoder.eval()
+        # features = encoder.predict(data)
+        # km = KMeans(n_clusters=n_cluster, n_init=20, n_jobs=4)
+        # y_pred = km.fit_predict(features)
+        # print(' ' * 8 + '|==>  acc: %.4f,  nmi: %.4f  <==|'
+        #       % (metrics.acc(target, y_pred), metrics.nmi(target, y_pred)))
     else:
         encoder.load_state_dict(torch.load(os.path.join(models_dir, 'encoder.pkl')))
         decoder.load_state_dict((torch.load(os.path.join(models_dir, 'decoder.pkl'))))

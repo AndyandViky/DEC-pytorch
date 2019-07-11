@@ -45,7 +45,7 @@ class Encoder_CNN(nn.Module):
     input: reak-image
     output: vector sample from z
     """
-    def __init__(self, batch_size=60, n_cluster=10, verbose=False):
+    def __init__(self, batch_size=256, n_cluster=10, verbose=False):
         super(Encoder_CNN, self).__init__()
 
         self.batch_size = batch_size
@@ -86,7 +86,7 @@ class Encoder_CNN(nn.Module):
 
 
 class Decoder_CNN(nn.Module):
-    def __init__(self, n_cluster=10, batch_size=60, img_feature=(1, 28, 28), verbose=False):
+    def __init__(self, n_cluster=10, batch_size=256, img_feature=(1, 28, 28), verbose=False):
         super(Decoder_CNN, self).__init__()
 
         self.n_cluster = n_cluster
@@ -130,8 +130,19 @@ class Decoder_CNN(nn.Module):
 
 
 class DEC(nn.Module):
-    def __init__(self):
+    def __init__(self, n_cluster=10, batch_size=256,  verbose=False):
         super(DEC, self).__init__()
+
+        self.n_cluster = n_cluster
+        self.batch_size = batch_size
+        self.verbose = verbose
+
+        self.model = nn.Sequential(
+
+        )
+
+        if self.verbose:
+            print(self.model)
 
     def forward(self, x):
         pass
@@ -139,8 +150,8 @@ class DEC(nn.Module):
 
 # encoder = Encoder_CNN()
 # decoder = Decoder_CNN()
-# from vaegan.datasets import get_dataloader
-# import matplotlib.pyplot as plt
+# from dec.datasets import get_dataloader
+# from dec.utils import img_show
 # dataloader = get_dataloader()
 # real_imgs, target = next(iter(dataloader))
 # z = encoder(real_imgs)
