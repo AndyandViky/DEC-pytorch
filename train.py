@@ -23,6 +23,7 @@ try:
     from itertools import chain as ichain
     from sklearn.cluster import KMeans
     import dec.metrics as metrics
+    import time
 except ImportError as e:
     print(e)
     raise ImportError
@@ -60,7 +61,7 @@ def main():
     momentum = 0.9
     epochs = args.n_epochs
     batch_size = args.batch_size
-    pretrain_epochs = 100
+    pretrain_epochs = 50
     pretrain = args.pretrain
     n_cluster = 10
     lr_adam = 1e-4 # 0.0001, 用于预训练autoencoder
@@ -100,6 +101,7 @@ def main():
     # ----pretrain----
     if pretrain:
         print('...Pretraining...')
+        t0 = time()
         for epoch in range(pretrain_epochs):
             for i, (data, target) in enumerate(dataloader):
                 data, target = data.to(device), target.to(device)
@@ -129,6 +131,8 @@ def main():
             print(' ' * 8 + '|==>  acc: %.4f,  nmi: %.4f  <==|'
                   % (metrics.acc(target, y_pred), metrics.nmi(target, y_pred)))
 
+        t1 = time()
+        print("pretrain time: %d" % t1-t0)
         # save model params
         torch.save(encoder.state_dict(), os.path.join(models_dir, 'encoder.pkl'))
         torch.save(decoder.state_dict(), os.path.join(models_dir, 'decoder.pkl'))

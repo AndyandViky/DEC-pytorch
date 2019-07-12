@@ -129,22 +129,45 @@ class Decoder_CNN(nn.Module):
         return gen_imgs
 
 
-class DEC(nn.Module):
-    def __init__(self, n_cluster=10, batch_size=256,  verbose=False):
-        super(DEC, self).__init__()
+class Cluster_Layer(nn.Module):
+    def __init__(self, n_cluster=10, weights=None, alpha=1.0, **kwargs):
+        super(Cluster_Layer, self).__init__(**kwargs)
 
         self.n_cluster = n_cluster
-        self.batch_size = batch_size
-        self.verbose = verbose
+        self.weights = weights
+        self.alpha = alpha
+        self.clusters = None
 
-        self.model = nn.Sequential(
-
-        )
-
-        if self.verbose:
-            print(self.model)
+        if self.weights is not None:
+            del self.weights
+            pass
 
     def forward(self, x):
+        q = 1.0 / (1.0 + (torch.sum(torch.square(
+            np.expand_dims(x.data.cup().numpy(), axis=1) - self.clusters), axis=2) / self.alpha))
+        q **= (self.alpha + 1.0) / 2.0
+        q = torch.transpose(torch.transpose(q) / torch.sum(q, axis=1))
+        return q
+
+
+class DEC(nn.Module):
+    def __init__(self, encoder=None, n_cluster=10, batch_size=256):
+        super(DEC, self).__init__()
+
+        assert isinstance(encoder, nn.Module)
+        self.encoder = encoder
+        self.n_cluster = n_cluster
+        self.batch_size = batch_size
+
+    def target_distribution(q):
+        weight = q ** 2 / q.sum(0)
+        return (weight.T / weight.sum(1)).T
+
+    def forward(self, x):
+        features = self.encoder(x)
+        cluster = Cluster_Layer()
+        q = cluster(features)
+        p = self.target_distribution(q)
         pass
 
 
