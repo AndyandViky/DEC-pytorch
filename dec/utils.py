@@ -41,9 +41,10 @@ def init_weights(Net):
 
 def save_images(tensor, filename):
     torchvision.utils.save_image(
-        tensor,
+        tensor.data[:25],
         filename,
-        nrow=16
+        nrow=5,
+        normalize=True
     )
 
 

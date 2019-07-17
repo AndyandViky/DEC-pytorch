@@ -168,7 +168,7 @@ class DEC(nn.Module):
         cluster = Cluster_Layer()
         q = cluster(features)
         p = self.target_distribution(q)
-        pass
+        return p, q
 
 
 # encoder = Encoder_CNN()
