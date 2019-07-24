@@ -13,6 +13,7 @@ try:
     import matplotlib.pyplot as plt
     import torchvision
     import numpy as np
+    import torch
     import torch.nn as nn
 except ImportError as e:
     print(e)
@@ -47,4 +48,7 @@ def save_images(tensor, filename):
         normalize=True
     )
 
+
+def kl_divergence(p, q):
+    return torch.mean(torch.sum(p * torch.log(p/q), dim=1))
 

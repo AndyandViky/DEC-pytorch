@@ -14,6 +14,7 @@ try:
     import numpy as np
     import torch.nn as nn
     import torchvision
+    from sklearn.cluster import KMeans
     from torch.autograd import Variable
     from dec.utils import init_weights
 except ImportError as e:
@@ -151,13 +152,27 @@ class Cluster_Layer(nn.Module):
 
 
 class DEC(nn.Module):
-    def __init__(self, encoder=None, n_cluster=10, batch_size=256):
+    def __init__(self, encoder=None, n_cluster=10, batch_size=256, encoder_dim=10, alpha=1.0):
         super(DEC, self).__init__()
 
         assert isinstance(encoder, nn.Module)
         self.encoder = encoder
         self.n_cluster = n_cluster
         self.batch_size = batch_size
+        self.mu = torch.zeros(self.n_cluster, encoder_dim)
+        self.kmeans = KMeans(n_clusters=self.n_cluster, n_init=20)
+        self.alpha = alpha
+
+    def get_assign_cluster_centers_op(self, features):
+        # init mu
+        print("Kmeans train start.")
+        result = self.kmeans.fit(features)
+        print("Kmeans train end.")
+        self.mu = torch.from_numpy(result.cluster_centers_).repeat(1, 1)
+        return self.mu
+
+    def soft_assignment(self):
+        pass
 
     def target_distribution(q):
         weight = q ** 2 / q.sum(0)
@@ -169,7 +184,6 @@ class DEC(nn.Module):
         q = cluster(features)
         p = self.target_distribution(q)
         return p, q
-
 
 # encoder = Encoder_CNN()
 # decoder = Decoder_CNN()
