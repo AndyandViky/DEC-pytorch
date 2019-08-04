@@ -31,7 +31,7 @@ def get_datasets(dataset_name='mnist'):
         raise ValueError('dataset_name is not validata')
 
 
-def get_dataloader(dataset_path='../datasets/mnist', dataset_name='mnist', batch_size=60, train=True):
+def get_dataloader(dataset_path='../datasets/mnist', dataset_name='mnist', batch_size=256, train=True):
     dataset = get_datasets(dataset_name)
 
     dataloader = torch.utils.data.DataLoader(

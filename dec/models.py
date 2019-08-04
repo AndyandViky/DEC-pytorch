@@ -131,23 +131,23 @@ class Decoder_CNN(nn.Module):
 
 
 class Cluster_Layer(nn.Module):
-    def __init__(self, n_cluster=10, weights=None, alpha=1.0, **kwargs):
+    def __init__(self, n_cluster=10, weights=None, alpha=1.0, clusters=None, **kwargs):
         super(Cluster_Layer, self).__init__(**kwargs)
 
         self.n_cluster = n_cluster
         self.weights = weights
         self.alpha = alpha
-        self.clusters = None
+        self.clusters = clusters
 
         if self.weights is not None:
             del self.weights
             pass
 
     def forward(self, x):
-        q = 1.0 / (1.0 + (torch.sum(torch.square(
-            np.expand_dims(x.data.cup().numpy(), axis=1) - self.clusters), axis=2) / self.alpha))
-        q **= (self.alpha + 1.0) / 2.0
-        q = torch.transpose(torch.transpose(q) / torch.sum(q, axis=1))
+        q = 1.0 / (1.0 + (torch.sum(torch.pow(
+            torch.unsqueeze(x, 1) - self.clusters, exponent=2), dim=2) / self.alpha))
+        q = torch.pow(q, exponent=(self.alpha + 1.0) / 2.0)
+        q = torch.transpose(torch.transpose(q, 0, 1) / torch.sum(q, dim=1), 0, 1)
         return q
 
 
@@ -162,38 +162,41 @@ class DEC(nn.Module):
         self.mu = torch.zeros(self.n_cluster, encoder_dim)
         self.kmeans = KMeans(n_clusters=self.n_cluster, n_init=20)
         self.alpha = alpha
+        self.cluster_layer = None
 
     def get_assign_cluster_centers_op(self, features):
         # init mu
         print("Kmeans train start.")
-        result = self.kmeans.fit(features)
+        result = self.kmeans.fit(features.data)
         print("Kmeans train end.")
         self.mu = torch.from_numpy(result.cluster_centers_).repeat(1, 1)
+        self.mu = torch.as_tensor(self.mu, dtype=torch.float32)
+        self.cluster_layer = Cluster_Layer(n_cluster=self.n_cluster, alpha=self.alpha, clusters=self.mu)
         return self.mu
 
-    def soft_assignment(self):
-        pass
-
-    def target_distribution(q):
-        weight = q ** 2 / q.sum(0)
-        return (weight.T / weight.sum(1)).T
+    def target_distribution(self, q):
+        p = q ** 2 / q.sum(0)
+        p = p / p.sum(dim=1, keepdim=True)
+        return p
 
     def forward(self, x):
         features = self.encoder(x)
-        cluster = Cluster_Layer()
-        q = cluster(features)
+        q = self.cluster_layer(features)
         p = self.target_distribution(q)
         return p, q
 
 # encoder = Encoder_CNN()
 # decoder = Decoder_CNN()
+# dec = DEC(encoder=encoder)
 # from dec.datasets import get_dataloader
 # from dec.utils import img_show
 # dataloader = get_dataloader()
 # real_imgs, target = next(iter(dataloader))
 # z = encoder(real_imgs)
 #
-# fake_imgs = decoder(z)
+# mu = dec.get_assign_cluster_centers_op(z)
 #
+# p, q = dec(real_imgs)
+
 # img_show(torchvision.utils.make_grid(fake_imgs.data))
 

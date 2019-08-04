@@ -33,7 +33,7 @@ def main():
     global args
     parser = argparse.ArgumentParser(description="Convolutional NN Training Script")
     parser.add_argument("-r", "--run_name", dest="run_name", default="dec", help="Name of training run")
-    parser.add_argument("-n", "--n_epochs", dest="n_epochs", default=200, type=int, help="Number of epochs")
+    parser.add_argument("-n", "--n_epochs", dest="n_epochs", default=50, type=int, help="Number of epochs")
     parser.add_argument("-b", "--batch_size", dest="batch_size", default=256, type=int, help="Batch size")
     parser.add_argument("-s", "--dataset_name", dest="dataset_name", default='mnist', choices=dataset_list,
                         help="Dataset name")
@@ -61,7 +61,7 @@ def main():
     momentum = 0.9
     epochs = args.n_epochs
     batch_size = args.batch_size
-    pretrain_epochs = 50
+    pretrain_epochs = 10
     pretrain = args.pretrain
     n_cluster = 10
     lr_adam = 1e-4 # 0.0001, 用于预训练autoencoder
@@ -69,6 +69,7 @@ def main():
     b2 = 0.9 #99
     decay = 2.5*1e-5
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    alpha = 1.0
 
     #------test var--------
     test_batch_size = 1500
@@ -76,7 +77,6 @@ def main():
     # net
     encoder = Encoder_CNN(n_cluster=n_cluster, batch_size=batch_size)
     decoder = Decoder_CNN(n_cluster=n_cluster, batch_size=batch_size, img_feature=(1, 28, 28))
-    dec = DEC(n_cluster=n_cluster, batch_size=batch_size)
 
     # 组合参数
     autoencoder_params = ichain(encoder.parameters(),
@@ -84,7 +84,6 @@ def main():
 
     # optimization
     auto_op = torch.optim.Adam(autoencoder_params, lr=lr_adam, betas=(b1, b2), weight_decay=decay)
-    # dec_op = torch.optim.SGD(dec.parameters(), lr=sgd_lr, momentum=momentum)
 
     # dataloader
     dataloader = get_dataloader(dataset_path=data_dir, dataset_name=dataset_name, batch_size=batch_size, train=True)
@@ -95,12 +94,14 @@ def main():
     # to cuda
     encoder.to(device)
     decoder.to(device)
-    dec.to(device)
     auto_loss.to(device)
 
     # ----pretrain----
     if pretrain:
         print('...Pretraining...')
+        logger = open(os.path.join(log_path, "log.txt"), 'a')
+        logger.write("pretraining...")
+        logger.close()
         t0 = time()
         for epoch in range(pretrain_epochs):
             for i, (data, target) in enumerate(dataloader):
@@ -128,8 +129,19 @@ def main():
             data, target = features.data.cpu(), target.numpy()
             km = KMeans(n_clusters=n_cluster, n_init=20)
             y_pred = km.fit_predict(features.data.cpu())
+            acc = metrics.acc(target, y_pred)
+            nmi = metrics.nmi(target, y_pred)
             print(' ' * 8 + '|==>  acc: %.4f,  nmi: %.4f  <==|'
-                  % (metrics.acc(target, y_pred), metrics.nmi(target, y_pred)))
+                  % (acc, nmi))
+
+            # log pretrain info
+            logger = open(os.path.join(log_path, "log.txt"), 'a')
+            logger.write(
+                "iter={}, acc={:.4f}, nmi={:.4f}\n".format(
+                    epoch, acc, nmi
+                )
+            )
+            logger.close()
 
         t1 = time()
         print("pretrain time: %d" % t1-t0)
@@ -141,6 +153,14 @@ def main():
         encoder.load_state_dict(torch.load(os.path.join(models_dir, 'encoder.pkl')))
         decoder.load_state_dict((torch.load(os.path.join(models_dir, 'decoder.pkl'))))
 
+
+    #============================DEC===============================
+
+    dec = DEC(encoder=encoder, n_cluster=n_cluster, batch_size=batch_size, alpha=alpha)
+    dec_op = torch.optim.SGD(dec.parameters(), lr=sgd_lr, momentum=momentum)
+    dec.to(device)
+    for epoch in epochs:
+        pass
 
 if __name__ == '__main__':
     main()
