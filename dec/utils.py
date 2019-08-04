@@ -49,6 +49,6 @@ def save_images(tensor, filename):
     )
 
 
-def kl_divergence(p, q):
-    return torch.mean(torch.sum(p * torch.log(p/q), dim=1))
+def kl_divergence(target, pred):
+    return torch.mean(torch.sum(target * torch.log(target/pred), dim=1))
 

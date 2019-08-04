@@ -171,7 +171,7 @@ class DEC(nn.Module):
         print("Kmeans train end.")
         self.mu = torch.from_numpy(result.cluster_centers_).repeat(1, 1)
         self.mu = torch.as_tensor(self.mu, dtype=torch.float32)
-        self.cluster_layer = Cluster_Layer(n_cluster=self.n_cluster, alpha=self.alpha, clusters=self.mu)
+        self.cluster_layer = Cluster_Layer(n_cluster=self.n_cluster, alpha=self.alpha, clusters=self.mu.cuda())
         return self.mu
 
     def target_distribution(self, q):
@@ -183,7 +183,7 @@ class DEC(nn.Module):
         features = self.encoder(x)
         q = self.cluster_layer(features)
         p = self.target_distribution(q)
-        return p, q
+        return q, p
 
 # encoder = Encoder_CNN()
 # decoder = Decoder_CNN()

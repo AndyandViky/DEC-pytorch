@@ -19,7 +19,7 @@ try:
     from dec.models import Encoder_CNN, Decoder_CNN, DEC
     from dec.datasets import dataset_list, get_dataloader
     from dec.definitions import RUNS_DIR, DATASETS_DIR
-    from dec.utils import save_images
+    from dec.utils import save_images, kl_divergence
     from itertools import chain as ichain
     from sklearn.cluster import KMeans
     import dec.metrics as metrics
@@ -100,7 +100,7 @@ def main():
     if pretrain:
         print('...Pretraining...')
         logger = open(os.path.join(log_path, "log.txt"), 'a')
-        logger.write("pretraining...")
+        logger.write("pretraining...\n")
         logger.close()
         t0 = time()
         for epoch in range(pretrain_epochs):
@@ -159,8 +159,43 @@ def main():
     dec = DEC(encoder=encoder, n_cluster=n_cluster, batch_size=batch_size, alpha=alpha)
     dec_op = torch.optim.SGD(dec.parameters(), lr=sgd_lr, momentum=momentum)
     dec.to(device)
+
+    # init mu
+    data, target = next(iter(dataloader))
+    dec.get_assign_cluster_centers_op(encoder(data.to(device)))
+
+    logger = open(os.path.join(log_path, "log.txt"), 'a')
+    logger.write("============================DEC===============================\n")
+    logger.close()
+
     for epoch in epochs:
-        pass
+
+        for i, (data, target) in enumerate(dataloader):
+            data, target = data.to(device), target.to(device)
+
+            dec.train()
+            dec.zero_grad()
+            dec_op.zero_grad()
+
+            q, p = dec(data)
+            loss = kl_divergence(p, q)
+
+            loss.backward()
+            dec_op.step()
+
+        # test
+        _data, _target = next(iter(dataloader))
+        q, p = dec(_data)
+        pred = torch.argmax(q, dim=1)
+        print("[DEC] epoch: {}\tloss: {}\tacc: {}".format(epoch, loss, metrics.acc(target, pred)))
+        logger = open(os.path.join(log_path, "log.txt"), 'a')
+        logger.write("[DEC] epoch: {}\tloss: {}\tacc: {}\n"
+                     .format(epochs, loss, metrics.acc(target, pred)))
+        logger.close()
+
+    # save dec model
+    torch.save(dec.state_dict(), os.path.join(models_dir, 'dec.pkl'))
+
 
 if __name__ == '__main__':
     main()
