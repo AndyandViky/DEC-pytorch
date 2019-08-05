@@ -23,7 +23,6 @@ try:
     from itertools import chain as ichain
     from sklearn.cluster import KMeans
     import dec.metrics as metrics
-    import time
 except ImportError as e:
     print(e)
     raise ImportError
@@ -37,7 +36,7 @@ def main():
     parser.add_argument("-b", "--batch_size", dest="batch_size", default=256, type=int, help="Batch size")
     parser.add_argument("-s", "--dataset_name", dest="dataset_name", default='mnist', choices=dataset_list,
                         help="Dataset name")
-    parser.add_argument("-p", "--pretrain", dest="pretrain", default=True, help="pretrain ae")
+    parser.add_argument("-p", "--pretrain", dest="pretrain", default=False, help="pretrain ae")
     args = parser.parse_args()
 
     run_name = args.run_name
@@ -61,7 +60,7 @@ def main():
     momentum = 0.9
     epochs = args.n_epochs
     batch_size = args.batch_size
-    pretrain_epochs = 10
+    pretrain_epochs = 20
     pretrain = args.pretrain
     n_cluster = 10
     lr_adam = 1e-4 # 0.0001, 用于预训练autoencoder
@@ -102,7 +101,6 @@ def main():
         logger = open(os.path.join(log_path, "log.txt"), 'a')
         logger.write("pretraining...\n")
         logger.close()
-        t0 = time()
         for epoch in range(pretrain_epochs):
             for i, (data, target) in enumerate(dataloader):
                 data, target = data.to(device), target.to(device)
@@ -143,8 +141,6 @@ def main():
             )
             logger.close()
 
-        t1 = time()
-        print("pretrain time: %d" % t1-t0)
         # save model params
         torch.save(encoder.state_dict(), os.path.join(models_dir, 'encoder.pkl'))
         torch.save(decoder.state_dict(), os.path.join(models_dir, 'decoder.pkl'))
@@ -168,7 +164,7 @@ def main():
     logger.write("============================DEC===============================\n")
     logger.close()
 
-    for epoch in epochs:
+    for epoch in range(epochs):
 
         for i, (data, target) in enumerate(dataloader):
             data, target = data.to(device), target.to(device)
@@ -185,12 +181,15 @@ def main():
 
         # test
         _data, _target = next(iter(dataloader))
-        q, p = dec(_data)
-        pred = torch.argmax(q, dim=1)
-        print("[DEC] epoch: {}\tloss: {}\tacc: {}".format(epoch, loss, metrics.acc(target, pred)))
+        q, p = dec(_data.cuda())
+        _loss = kl_divergence(p, q)
+        _pred = torch.argmax(q, dim=1)
+        _acc = metrics.acc(_target.numpy(), _pred.cpu().numpy())
+        _nmi = metrics.nmi(_target.numpy(), _pred.cpu().numpy())
+        print("[DEC] epoch: {}\tloss: {}\tacc: {}\tnmi: {}".format(epoch, _loss, _acc, _nmi))
         logger = open(os.path.join(log_path, "log.txt"), 'a')
-        logger.write("[DEC] epoch: {}\tloss: {}\tacc: {}\n"
-                     .format(epochs, loss, metrics.acc(target, pred)))
+        logger.write("[DEC] epoch: {}\tloss: {}\tacc: {}\tnmi: {}\n"
+                     .format(epoch, _loss, _acc, _nmi))
         logger.close()
 
     # save dec model

@@ -167,7 +167,7 @@ class DEC(nn.Module):
     def get_assign_cluster_centers_op(self, features):
         # init mu
         print("Kmeans train start.")
-        result = self.kmeans.fit(features.data)
+        result = self.kmeans.fit(features.data.cpu())
         print("Kmeans train end.")
         self.mu = torch.from_numpy(result.cluster_centers_).repeat(1, 1)
         self.mu = torch.as_tensor(self.mu, dtype=torch.float32)
