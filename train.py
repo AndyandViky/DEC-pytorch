@@ -180,6 +180,8 @@ def main():
             dec_op.step()
 
         # test
+        encoder.eval()
+        dec.eval()
         _data, _target = next(iter(dataloader))
         q, p = dec(_data.cuda())
         _loss = kl_divergence(p, q)
